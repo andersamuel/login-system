@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../services/axios";
 import { AuthContext } from "./AuthContext";
 
 export const AuthProvider = (props) => {
@@ -9,36 +10,60 @@ export const AuthProvider = (props) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const recoveredUser = localStorage.getItem("user");
+    const recovered_id = localStorage.getItem("_id");
+    const recoveredToken = localStorage.getItem("token");
 
-    if (recoveredUser) {
-      setUser(JSON.parse(recoveredUser));
-      navigate("/");
+    if (recovered_id && recoveredToken) {
+      validate(recovered_id, recoveredToken);
     }
+
+    if (!recovered_id || !recoveredToken) navigate("/login");
 
     setLoading(false);
   }, []);
 
-  const login = (email, password) => {
-    console.log("login", { email, password });
+  const validate = async (_id, token) => {
+    await api.post("/validatetoken", { _id, token }).then((response) => {
+      if (response.data.auth === true) {
+        setUser(_id);
+        navigate("/");
+      } else {
+        localStorage.removeItem("_id");
+        localStorage.removeItem("token");
 
-    if (password === "1") {
-      const loggedUser = { id: "1", email };
-      const session_key = "999999";
+        api.defaults.headers.Authorization = `Bearer ${token}`;
 
-      localStorage.setItem("user", JSON.stringify(loggedUser));
-      localStorage.setItem("session_key", session_key);
+        setUser(null);
+        navigate("/login");
+      }
+    });
+  };
 
-      setUser(loggedUser);
-      navigate("/");
-    }
+  const login = async (email, password) => {
+    await api
+      .post("/authenticate", { email, password })
+      .then((response) => {
+        if (response.data.auth === true) {
+          const _id = response.data._id;
+          const token = response.data.token;
+
+          localStorage.setItem("_id", _id);
+          localStorage.setItem("token", token);
+
+          api.defaults.headers.Authorization = `Bearer ${token}`;
+
+          setUser(_id);
+          navigate("/");
+        } else {
+          alert("Erro de autenticação.");
+        }
+      })
+      .catch((error) => console.error(error));
   };
 
   const logout = () => {
-    console.log("logout");
-
-    localStorage.removeItem("user");
-    localStorage.removeItem("session_key");
+    localStorage.removeItem("_id");
+    localStorage.removeItem("token");
 
     setUser(null);
     navigate("/login");

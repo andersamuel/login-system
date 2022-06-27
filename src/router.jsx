@@ -21,8 +21,6 @@ const Router = () => {
       );
     }
 
-    if (!authenticated) return <Navigate to="/login" />;
-
     return props.children;
   };
 
